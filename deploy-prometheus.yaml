@@ -1,0 +1,45 @@
+---
+- name: Seting up required users and directories
+  hosts: all
+  become: yes
+  tasks:
+    - name: Creating prometheus user
+      ansible.builtin.user:
+        name: Prometheus
+        create_home: false
+        shell: /bin/false
+    - name: Creating node_exporter user
+      ansible.builtin.user:
+        name: node_exporter
+        create_home: false
+        shell: /bin/false
+    - name: Create directory /etc/prometheus
+      ansible.builtin.file:
+        path: /etc/prometheus
+        state: directory
+        mode: "0755"
+    - name: Create directory /var/lib/prometheus
+      ansible.builtin.file:
+        path: /var/lib/prometheus
+        state: directory
+        mode: "0755"
+    - name: Make prometheus as owner of the directories
+      ansible.builtin.file:
+        path: /etc/prometheus
+        owner: prometheus
+        group: prometheus
+    - name: Make prometheus as owner of the directories
+      ansible.builtin.file:
+        path: /var/lib/prometheus
+        owner: prometheus
+        group: prometheus
+- name: Downloading prometheus
+  hosts: all
+  become: yes
+  tasks:
+    - name: Download Prometheus
+      ansible.builtin.get_url:
+        url: https://github.com/prometheus/prometheus/releases/download/v2.49.0-rc.1/prometheus-2.49.0-rc.1.linux-amd64.tar.gz
+        dest: .
+        checksum: af8488aeef92707fb0d3ede092208e67de37e51155d08f6ae7566d75278e87a6
+   
