@@ -3,36 +3,31 @@
   hosts: all
   become: yes
   tasks:
-    - name: Creating prometheus user
+    - name: Creating prometheus and node_exporter users
       ansible.builtin.user:
-        name: Prometheus
+        name: "{{ item }}"
         create_home: false
-        shell: /bin/false
-    - name: Creating node_exporter user
-      ansible.builtin.user:
-        name: node_exporter
-        create_home: false
-        shell: /bin/false
-    - name: Create directory /etc/prometheus
+        shell: /bin/false # this will not allow the users to login into the user created ( if the user tries to login to this created user /bin/false will be executed which will exit from the shell immediately )
+      loop:
+        - prometheus
+        - node_exporter
+    - name: Create directory /etc/prometheus and /var/lib/prometheus
       ansible.builtin.file:
-        path: /etc/prometheus
+        path: "{{ item }}"
         state: directory
         mode: "0755"
-    - name: Create directory /var/lib/prometheus
-      ansible.builtin.file:
-        path: /var/lib/prometheus
-        state: directory
-        mode: "0755"
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
     - name: Make prometheus as owner of the directories
       ansible.builtin.file:
-        path: /etc/prometheus
+        path: "{{ item }}"
         owner: prometheus
         group: prometheus
-    - name: Make prometheus as owner of the directories
-      ansible.builtin.file:
-        path: /var/lib/prometheus
-        owner: prometheus
-        group: prometheus
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
 - name: Downloading prometheus
   hosts: all
   become: yes
@@ -42,4 +37,65 @@
         url: https://github.com/prometheus/prometheus/releases/download/v2.49.0-rc.1/prometheus-2.49.0-rc.1.linux-amd64.tar.gz
         dest: .
         checksum: af8488aeef92707fb0d3ede092208e67de37e51155d08f6ae7566d75278e87a6
-   
+    - name: Unarchive the file
+      ansible.builtin.unarchive:
+        src: .
+        dest: .
+    - name: Copying prometheus and promtool binaries to local bin
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest:  /usr/local/bin/
+        remote_src: yes
+      loop:
+        - prometheus-2.49.0-rc.1.linux-amd64/prometheus
+        - prometheus-2.49.0-rc.1.linux-amd64/promtool
+    - name: Make prometheus as owner of the binaries
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+      loop:
+        - /usr/local/bin/prometheus
+        - /usr/local/bin/promtool
+    - name: Copying console and console_libraries to /etc/prometheus
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest:  /etc/prometheus
+        remote_src: yes
+      loop:
+        - prometheus-2.49.0-rc.1.linux-amd64/consoles
+        - prometheus-2.49.0-rc.1.linux-amd64/console_libraries 
+    - name: Make prometheus as owner of the directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+      loop:
+        - /etc/prometheus/consoles
+        - /etc/prometheus/console_libraries
+    - name: Removing the files not needed
+      ansible.builtin.file::
+        path: prometheus-2.49.0-rc.1.linux-amd64
+        state: absent
+- name: Configuring Prometheus files
+  hosts: all
+  become: yes
+  tasks:
+    - name: Overwriting the config file of prometheus
+      ansible.builtin.copy:
+        src: prometheus.yaml
+        dest: /etc/prometheus/prometheus.yaml
+    - name: Setting OwnerShip
+      ansible.builtin.file:
+        path: /etc/prometheus/prometheus.yaml
+        owner: prometheus
+        group: prometheus
+      
+- name: Running Prometheus
+  hosts: all
+  become: yes
+  tasks:
+    - name: Starting prometheus
+      ansible.builtin.command:
+        cmd: prometheus /usr/local/bin/prometheus --config.file /etc/prometheus/prometheus.yml --storage.tsdb.path /var/lib/prometheus/ --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
+      become_user: prometheus
