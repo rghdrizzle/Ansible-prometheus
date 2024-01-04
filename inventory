@@ -1,0 +1,2 @@
+[prometheus]
+74.235.160.43 ansible_user=azureuser ansible_ssh_private_key_file=prom.pem

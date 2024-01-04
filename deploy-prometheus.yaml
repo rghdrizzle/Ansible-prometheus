@@ -36,11 +36,12 @@
       ansible.builtin.get_url:
         url: https://github.com/prometheus/prometheus/releases/download/v2.49.0-rc.1/prometheus-2.49.0-rc.1.linux-amd64.tar.gz
         dest: .
-        checksum: af8488aeef92707fb0d3ede092208e67de37e51155d08f6ae7566d75278e87a6
+        checksum: sha256:af8488aeef92707fb0d3ede092208e67de37e51155d08f6ae7566d75278e87a6
     - name: Unarchive the file
       ansible.builtin.unarchive:
-        src: .
-        dest: .
+        src: prometheus-2.49.0-rc.1.linux-amd64.tar.gz
+        dest: ./
+        remote_src: yes
     - name: Copying prometheus and promtool binaries to local bin
       ansible.builtin.copy:
         src: "{{ item }}"
@@ -74,7 +75,7 @@
         - /etc/prometheus/consoles
         - /etc/prometheus/console_libraries
     - name: Removing the files not needed
-      ansible.builtin.file::
+      ansible.builtin.file:
         path: prometheus-2.49.0-rc.1.linux-amd64
         state: absent
 - name: Configuring Prometheus files
@@ -83,7 +84,7 @@
   tasks:
     - name: Overwriting the config file of prometheus
       ansible.builtin.copy:
-        src: prometheus.yaml
+        src: prometheus.yml
         dest: /etc/prometheus/prometheus.yaml
     - name: Setting OwnerShip
       ansible.builtin.file:
@@ -97,5 +98,17 @@
   tasks:
     - name: Starting prometheus
       ansible.builtin.command:
-        cmd: prometheus /usr/local/bin/prometheus --config.file /etc/prometheus/prometheus.yml --storage.tsdb.path /var/lib/prometheus/ --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
-      become_user: prometheus
+        cmd: /usr/local/bin/prometheus --config.file /etc/prometheus/prometheus.yml --storage.tsdb.path /var/lib/prometheus/ --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
+      async: 1000
+      poll: 0
+    - name: Configuring the systemd service file for prometheus
+      ansible.builtin.copy:
+        src: prometheus.service
+        dest: /etc/systemd/system/prometheus.service
+    - name: Reloading daemon to re read the systemd configs
+      systemd:
+        daemon_reload: true
+    - name: Starting prometheus
+      systemd:
+        state: started
+        name: prometheus
