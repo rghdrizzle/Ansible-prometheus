@@ -112,3 +112,37 @@
       systemd:
         state: started
         name: prometheus
+- name: Downloading node_exporter
+  hosts: all
+  become: yes
+  tasks:
+    - name: Downloading node node_exporter
+      ansible.builtin.get_url:
+        url: https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz
+        dest: .
+        checksum: sha256:a550cd5c05f760b7934a2d0afad66d2e92e681482f5f57a917465b1fba3b02a6
+    - name: Unarchive the file
+      ansible.builtin.unarchive:
+        src: node_exporter-1.7.0.linux-amd64.tar.gz
+        dest: ./
+        remote_src: yes
+    - name: Copying node exporter to local/bin
+      ansible.builtin.copy:
+        src: node_exporter-0.15.1.linux-amd64/node_exporter
+        dest:  /usr/local/bin/
+        remote_src: yes
+    - name: Make node exporter as owner of the binaries
+      ansible.builtin.file:
+        path: /usr/local/bin/node_exporter
+        owner: node_exporter
+        group: node_exporter
+    - name: Removing the files not needed
+      ansible.builtin.file:
+        path: node_exporter-0.15.1.linux-amd64
+        state: absent
+    - name: Configuring the systemd service file for node_exporter
+      ansible.builtin.copy:
+        src: node-exporter.service
+        dest: /etc/systemd/system/node_exporter.service
+        
+
