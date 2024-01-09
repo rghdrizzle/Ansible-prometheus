@@ -92,26 +92,6 @@
         owner: prometheus
         group: prometheus
       
-- name: Running Prometheus
-  hosts: all
-  become: yes
-  tasks:
-    - name: Starting prometheus
-      ansible.builtin.command:
-        cmd: /usr/local/bin/prometheus --config.file /etc/prometheus/prometheus.yml --storage.tsdb.path /var/lib/prometheus/ --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
-      async: 1000
-      poll: 0
-    - name: Configuring the systemd service file for prometheus
-      ansible.builtin.copy:
-        src: prometheus.service
-        dest: /etc/systemd/system/prometheus.service
-    - name: Reloading daemon to re read the systemd configs
-      systemd:
-        daemon_reload: true
-    - name: Starting prometheus
-      systemd:
-        state: started
-        name: prometheus
 - name: Downloading node_exporter
   hosts: all
   become: yes
@@ -128,7 +108,7 @@
         remote_src: yes
     - name: Copying node exporter to local/bin
       ansible.builtin.copy:
-        src: node_exporter-0.15.1.linux-amd64/node_exporter
+        src: node_exporter-1.7.0.linux-amd64/node_exporter
         dest:  /usr/local/bin/
         remote_src: yes
     - name: Make node exporter as owner of the binaries
@@ -138,11 +118,37 @@
         group: node_exporter
     - name: Removing the files not needed
       ansible.builtin.file:
-        path: node_exporter-0.15.1.linux-amd64
+        path: node_exporter-1.7.0.linux-amd64
         state: absent
     - name: Configuring the systemd service file for node_exporter
       ansible.builtin.copy:
-        src: node-exporter.service
+        src: node_exporter.service
         dest: /etc/systemd/system/node_exporter.service
-        
+- name: Running Prometheus
+  hosts: all
+  become: yes
+  tasks:
+    - name: Starting prometheus
+      ansible.builtin.command:
+        cmd: /usr/local/bin/prometheus --config.file /etc/prometheus/prometheus.yml --storage.tsdb.path /var/lib/prometheus/ --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
+      async: 1000
+      poll: 0
+    - name: Configuring the systemd service file for prometheus
+      ansible.builtin.copy:
+        src: prometheus.service
+        dest: /etc/systemd/system/prometheus.service
+    - name: Reloading daemon to re read the systemd configs
+      systemd:
+        daemon_reload: true
+    - name: Starting prometheus and node_exporter
+      systemd:
+        state: started
+        name: "{{ item }}"
+      loop:
+        - prometheus
+        - node_exporter
+    - name: Checking Output
+      shell: systemctl status prometheus | grep active
+      register: monit_status
+    - debug: msg={{monit_status.stdout_lines}}
 
