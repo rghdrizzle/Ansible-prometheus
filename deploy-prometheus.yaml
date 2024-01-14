@@ -15,7 +15,6 @@
       ansible.builtin.file:
         path: "{{ item }}"
         state: directory
-        mode: "0755"
       loop:
         - /etc/prometheus
         - /var/lib/prometheus
@@ -34,12 +33,12 @@
   tasks:
     - name: Download Prometheus
       ansible.builtin.get_url:
-        url: https://github.com/prometheus/prometheus/releases/download/v2.49.0-rc.1/prometheus-2.49.0-rc.1.linux-amd64.tar.gz
+        url: https://github.com/prometheus/prometheus/releases/download/v2.45.2/prometheus-2.45.2.linux-amd64.tar.gz
         dest: .
-        checksum: sha256:af8488aeef92707fb0d3ede092208e67de37e51155d08f6ae7566d75278e87a6
+        checksum: sha256:be2bd790336cd6beb87f0881c221b7b65d23cb1d2d16f570006546e091e58fc6
     - name: Unarchive the file
       ansible.builtin.unarchive:
-        src: prometheus-2.49.0-rc.1.linux-amd64.tar.gz
+        src: prometheus-2.45.2.linux-amd64.tar.gz
         dest: ./
         remote_src: yes
     - name: Copying prometheus and promtool binaries to local bin
@@ -48,8 +47,8 @@
         dest:  /usr/local/bin/
         remote_src: yes
       loop:
-        - prometheus-2.49.0-rc.1.linux-amd64/prometheus
-        - prometheus-2.49.0-rc.1.linux-amd64/promtool
+        - prometheus-2.45.2.linux-amd64/prometheus
+        - prometheus-2.45.2.linux-amd64/promtool
     - name: Make prometheus as owner of the binaries
       ansible.builtin.file:
         path: "{{ item }}"
@@ -64,8 +63,8 @@
         dest:  /etc/prometheus
         remote_src: yes
       loop:
-        - prometheus-2.49.0-rc.1.linux-amd64/consoles
-        - prometheus-2.49.0-rc.1.linux-amd64/console_libraries 
+        - prometheus-2.45.2.linux-amd64/consoles
+        - prometheus-2.45.2.linux-amd64/console_libraries 
     - name: Make prometheus as owner of the directories
       ansible.builtin.file:
         path: "{{ item }}"
@@ -74,10 +73,7 @@
       loop:
         - /etc/prometheus/consoles
         - /etc/prometheus/console_libraries
-    - name: Removing the files not needed
-      ansible.builtin.file:
-        path: prometheus-2.49.0-rc.1.linux-amd64
-        state: absent
+
 - name: Configuring Prometheus files
   hosts: all
   become: yes
@@ -85,10 +81,10 @@
     - name: Overwriting the config file of prometheus
       ansible.builtin.copy:
         src: prometheus.yml
-        dest: /etc/prometheus/prometheus.yaml
+        dest: /etc/prometheus/prometheus.yml
     - name: Setting OwnerShip
       ansible.builtin.file:
-        path: /etc/prometheus/prometheus.yaml
+        path: /etc/prometheus/prometheus.yml
         owner: prometheus
         group: prometheus
       
@@ -130,7 +126,7 @@
   tasks:
     - name: Starting prometheus
       ansible.builtin.command:
-        cmd: /usr/local/bin/prometheus --config.file /etc/prometheus/prometheus.yml --storage.tsdb.path /var/lib/prometheus/ --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
+        cmd: sudo -u prometheus /usr/local/bin/prometheus --config.file /etc/prometheus/prometheus.yml --storage.tsdb.path /var/lib/prometheus/ --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
       async: 1000
       poll: 0
     - name: Configuring the systemd service file for prometheus
